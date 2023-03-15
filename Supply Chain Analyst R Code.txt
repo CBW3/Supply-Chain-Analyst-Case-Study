@@ -1,0 +1,126 @@
+R Code: 
+
+  library(tidyverse)
+  install.packages("RODBC")
+  library(RODBC)
+  #Attempt to Create Connection#
+  db = sq3.connect("sqlite_data.db") 
+  cursor = db.cursor()
+  #Checking All The Tables in Dataset#
+  pd.read_sql_query('SELECT * FROM sqlite_master', db) 
+  farmprice = pd.read_sql_query('SELECT * FROM Farmprices', db , index_col="index", parse_dates='date')
+  farmprice["year"] = farmprice["date"].dt.year
+  #Here, I just want to read some values to make sure my code was executed properly#
+  farmprice.head()
+  pd.read_sql_query('SELECT COUNT(*) FROM Farmprices', db)
+  farmprice.shape 
+  pd.read_sql_query('SELECT DISTINCT GEO FROM Farmprices', db)
+  farmprice.GEO.unique() 
+  pd.read_sql_query('SELECT YEAR, cropType, SUM(harvestedArea) \
+                        FROM Cropdata \
+                        WHERE cropType="Rye" AND YEAR LIKE "1968%";', db)
+  cd = cropdata[(cropdata["YEAR"] == "1968-12-31") & (cropdata["cropType"] == "Rye")]
+  #I want to view new dataframe of new table#
+  View(cd)
+  #Summing Values to Get Totals#
+  cd.harvestedArea.sum() 
+  pd.read_sql_query('SELECT cropType, pricePerMT \
+                   FROM Farmprices \
+                   WHERE cropType = "Rye"\
+                   LIMIT 6;', db)
+  #Making sure values just for rye#
+  ryeprice = farmprice[farmprice["cropType"] == "Rye"] 
+  ryeprice.head 
+  pd.read_sql_query('SELECT DISTINCT cropType, GEO \
+                        FROM Cropdata \
+                          WHERE cropType = "Barley"\
+                   ;', db) 
+  #finding min date#
+  dates <- pd.read_sql_query('SELECT MIN(date) FROM Farmprices', db) %>% 
+    pd.read_sql_query('SELECT MAX(date) FROM Farmprices', db) 
+  #viewing new dataframe table to see min and max values
+  View(dates)
+  #query relevant information#
+  pd.read_sql_query('SELECT cropType, pricePerMT \
+                        FROM Farmprices \
+                          WHERE pricePerMT >=350.00;', db)
+  #finding expensive crop criterion#
+  expensive_crops <- farmprice[farmprice["pricePerMT"] >= 350.00] %>% 
+    View(expensive_crops) 
+  
+  #query relevant data for task/problem 10#
+  pd.read_sql_query('SELECT cropType, avgYield \
+                        FROM Cropdata \
+                          WHERE GEO = "Saskatchewan" AND YEAR LIKE "2000%"\
+                             ORDER BY avgYield DESC;', db)
+  #getting data only for year 2k#
+  year2000 = cropdata[cropdata["year"] == 2000] 
+  #ranking by average yield for just S territory#
+  year_2000_cropdata_S <- year2000[year2000["GEO"] == "Saskatchewan"].sort_values(by='avgYield') %>% 
+    View(year_2000_cropdata_S)
+  #query relevant info task 11#
+  pd.read_sql_query('SELECT cropType, avgYield \
+                      FROM Cropdata \
+                        WHERE YEAR >= 2000 \
+                          GROUP BY cropType, GEO \
+                            ORDER BY avgYield DESC \
+                              ;', db) 
+  #determining crop rankings#
+  crop_rank <- rank = cropdata[cropdata["year"] >= 2000] %>% 
+    View(crop_rank)
+  #finding out which crop did the best in terms of max values#
+  best_crop <- rank.groupby(['cropType','GEO'])['avgYield'].max().sort_values() %>% 
+    view(best_crop) 
+  #doing task 12 now -- for reference when you come back in a couple hours#
+  #performing query#
+  cropdata <- pd.read_sql_query('SELECT YEAR, cropType, SUM(harvestedArea), \
+                        (SELECT GEO FROM Cropdata\
+                          WHERE GEO = "Canada") AS Province\
+                             FROM Cropdata \
+                                WHERE cropType = "Wheat" AND YEAR LIKE "2020%";'                
+                                  , db))
+#tanking a look at queried info#
+view(cropdata)
+#making sure crop data in year 2020#
+cropdata_analysis <- year2020 = cropdata[cropdata["year"] == 2020] %>% 
+#grouping by crop type and geography with respect to harvest totals#
+  year2020.groupby(["cropType","GEO"])["harvestedArea"].sum() 
+view(cropdata_analysis) 
+#performing query for days#
+dailyfx = pd.read_sql_query('SELECT * FROM Dailyfx', db , index_col='index', parse_dates='date') 
+#checking if data looks alright# 
+head(dailyfx)
+#performing query for months# 
+monthlyfx = pd.read_sql_query('SELECT * FROM Monthlyfx', db , index_col='index', parse_dates='date') 
+#checking if data looks alright#
+head(monthlyfx)
+#performing query for dates & currencies# 
+pd.read_sql_query('SELECT a.date, (a.pricePerMT*1) AS CAD, (a.pricePerMT/b.FXUSDCAD) AS USD \
+                   FROM Farmprices AS a \
+                   INNER JOIN Monthlyfx AS b USING(date) \
+                   WHERE a.GEO = "Saskatchewan" AND a.date LIKE "2020%" AND CropType = "Canola"\
+                   ORDER BY a.date DESC \ ', db)
+#performing query for dates, crop type, and prices#
+pd.read_sql_query('SELECT a.date, a.cropType, a.priceperMT \
+                   FROM Farmprices AS a, Monthlyfx AS b\
+                   WHERE a.GEO = "Saskatchewan" AND a.date=b.date\
+                   GROUP BY a.date\
+                   ORDER BY a.date DESC \ ', db)
+#making sure data just focused on canola/canola analaysis #
+canola = farmprice[farmprice["cropType"] == "Canola"] 
+#sorting canola for just S territory3
+canolasas = canola[canola["GEO"] == "Saskatchewan"] 
+#sorting data for just year 2020#
+canolasas2020 = canolasas[canolasas["year"] == 2020] 
+#attempt to join queried tables#
+df = pd.merge(left=canolasas2020, right=monthlyfx, on="date", how="inner") 
+#check if inner join successful#
+view(df)
+#check -- continuing analysis with respect to currency figures#
+#calculating Canadian currency figures#
+df["CAD"] = df["pricePerMT"] * 1.00 
+#calculating US currency figures
+df["USD"] = df["CAD"] / df["FXUSDCAD"]
+#creating table for analysis#
+final_task <- df[["date","CAD","USD"]].tail(6).sort_values(by="date", ascending=False) %>% 
+  view(final_task)
